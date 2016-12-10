@@ -77,7 +77,8 @@ ID		[0-9a-zA-Z_]
 			  if (comment_level == 0) nested_lineno = curr_lineno;
 	 		  comment_level++; }
 
-<COMMENT>[^(*)\n]+(\n)?	{ if (yytext[yyleng-1] == '\n') nested_lineno++; }	
+<COMMENT>\n		{ nested_lineno++; }
+
 
 <COMMENT>"*)"		{ comment_level--;
 			  if (comment_level == 0) {
@@ -86,13 +87,13 @@ ID		[0-9a-zA-Z_]
 			  }
 			}
 
-"*)"			{ cool_yylval.error_msg = "Unmatched *)";
-			  return (ERROR); }
-
-<COMMENT>[(*)]{2}	;
+<COMMENT>.		;
 
 <COMMENT><<EOF>>	{ BEGIN(INITIAL);
 			  cool_yylval.error_msg = "EOF in comment";
+			  return (ERROR); }
+
+"*)"			{ cool_yylval.error_msg = "Unmatched *)";
 			  return (ERROR); }
 
  /*
@@ -183,11 +184,11 @@ f(?i:alse)		{ cool_yylval.boolean = 0;
   */
 
 "self"			|
-[a-z]{ID}+		{ cool_yylval.symbol = idtable.add_string(yytext);
+[a-z]{ID}*		{ cool_yylval.symbol = idtable.add_string(yytext);
 			  return (OBJECTID); }
 
 "SELF_TYPE"		|
-[A-Z]{ID}+		{ cool_yylval.symbol = idtable.add_string(yytext);
+[A-Z]{ID}*		{ cool_yylval.symbol = idtable.add_string(yytext);
 			  return (TYPEID); }
 
  /*
@@ -200,7 +201,8 @@ f(?i:alse)		{ cool_yylval.boolean = 0;
 \"			{ BEGIN(STRING);
 			  nested_lineno = curr_lineno;
 			  string_has_null = 0;
-			  string_buf_ptr = string_buf; }
+			  string_buf_ptr = string_buf;
+			  *string_buf_ptr = '\0'; }
 
 
 <STRING>[^\n\0\\\"]+	{ int cnt = yyleng;
@@ -224,6 +226,9 @@ f(?i:alse)		{ cool_yylval.boolean = 0;
 					break;
 				case 'f':
 					*string_buf_ptr++ = '\f';
+					break;
+				case '\0':
+					string_has_null = 1;
 					break;
 				case '\n':
 					nested_lineno++;

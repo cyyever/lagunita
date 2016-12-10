@@ -1,4 +1,4 @@
-sudo apt-get install --no-install-recommends flex bison build-essential csh openjdk-6-jdk libxaw7-dev
+sudo apt-get install --no-install-recommends flex bison build-essential csh
 sudo mkdir -p /usr/class
 sudo chown $USER /usr/class
 cd /usr/class
