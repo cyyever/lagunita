@@ -135,10 +135,12 @@
     %type <class_> class
     %type <features> dummy_feature_list
     %type <feature> feature method attr
-    %type <formals> formal_list
+    %type <formals> dummy_formal_list formal_list
     %type <formal> formal
-    %type <expressions> expression_list actual_argument_list let_initialization_list
-    %type <expression> expression opt_initialization
+    %type <cases> case_list
+    %type <case_> case
+    %type <expressions> expression_list argument_list dummy_argument_list
+    %type <expression> expression opt_initialization let_initialization_list
     
     /* Precedence declarations go here. */
     %right ASSIGN
@@ -173,25 +175,28 @@
     stringtable.add_string(curr_filename)); }
     | CLASS TYPEID INHERITS TYPEID '{' dummy_feature_list '}' ';'
     { $$ = class_($2,$4,$6,stringtable.add_string(curr_filename)); }
+    | error ';'
+    { yyerrok; }
     ;
     
     /* Feature list may be empty, but no empty features in list. */
     dummy_feature_list	:		/* empty */
     { $$ = nil_Features(); }
-    | dummy_feature_list feature ';'
-    { $$ = append_Features($1,single_Features($2); }
+    | dummy_feature_list feature
+    { $$ = append_Features($1,single_Features($2)); }
     ;
 
-    feature	: method
+    feature	: method ';'
     { $$ = $1; }
-    | attr
+    | attr ';'
     { $$ = $1; }
+    | error ';'
+    { yyerrok; }
     ;
 
-    method	: OBJECTID '(' formal_list ')' ':' TYPEID '{' expression '}'
+    method	: OBJECTID '(' dummy_formal_list ')' ':' TYPEID '{' expression '}'
     { $$ = method($1,$3,$6,$8); }
     ;
-
 
     attr	: OBJECTID ':' TYPEID opt_initialization
     { $$ = attr($1,$3,$4); }
@@ -204,8 +209,10 @@
     ;
 
     /* Formals */
-    formal	: OBJECTID ':' TYPEID
-    { $$ = formal($1,$3); }
+    dummy_formal_list	:		/* empty */
+    { $$ = nil_Formals(); }
+    | formal_list
+    { $$ = $1; }
     ;
 
     formal_list	: formal
@@ -214,27 +221,37 @@
     { $$ = append_Formals($1,single_Formals($3)); }
     ;
 
-    /* Expressions */
-    expression_list	: expression ';'
-    { $$ = single_expressions($1); }
-    | expression_list expression ';'
-    { $$ = append_expressions($1,single_expressions($2)); }
+    formal	: OBJECTID ':' TYPEID
+    { $$ = formal($1,$3); }
     ;
 
-    actual_argument_list	:		/* empty */
+    /* Expressions */
+    expression_list	: expression ';'
+    { $$ = single_Expressions($1); }
+    | expression_list expression ';'
+    { $$ = append_Expressions($1,single_Expressions($2)); }
+    ;
+
+    dummy_argument_list	:		/* empty */
     { $$ = nil_Expressions(); }
-    | expression ','actual_argument_list
-    { $$ = append_Expressions(single_Expressions($1),$3); }
+    | argument_list
+    { $$ = $1; }
+    ;
+
+    argument_list	: expression
+    { $$ = single_Expressions($1); }
+    | argument_list ',' expression
+    { $$ = append_Expressions($1,single_Expressions($3)); }
     ;
 
     expression	: OBJECTID ASSIGN expression
     { $$ = assign($1,$3); }
-    | expression '@' TYPEID '.' OBJECTID '(' actual_argument_list ')'
+    | expression '@' TYPEID '.' OBJECTID '(' dummy_argument_list ')'
     { $$ = static_dispatch($1,$3,$5,$7); }
-    | expression '.' OBJECTID '(' actual_argument_list ')'
+    | expression '.' OBJECTID '(' dummy_argument_list ')'
     { $$ = dispatch($1,$3,$5); }
-    | OBJECTID '(' actual_argument_list ')'
-    { $$ = dispatch(idtable.add_string("self"),$1,$3); }
+    | OBJECTID '(' dummy_argument_list ')'
+    { $$ = dispatch(object(idtable.add_string("self")),$1,$3); }
     | IF expression THEN expression ELSE expression FI
     { $$ = cond($2,$4,$6); }
     | WHILE expression LOOP expression POOL
@@ -243,6 +260,8 @@
     { $$ = block($2); }
     | LET OBJECTID ':' TYPEID opt_initialization let_initialization_list
     { $$ = let($2,$4,$5,$6); }
+    | CASE expression OF case_list ESAC
+    { $$ = typcase($2,$4); }
     | NEW TYPEID
     { $$ = new_($2); }
     | ISVOID expression 
@@ -281,6 +300,17 @@
     { $$ = let($2,$4,$5,$6); }
     | IN expression
     { $$ = $2; }
+    ;
+
+    /* Cases */
+    case	: OBJECTID ':' TYPEID DARROW expression ';'
+    { $$ = branch($1,$3,$5); }
+    ;
+
+    case_list	: case
+    { $$ = single_Cases($1); }
+    | case_list case
+    { $$ = append_Cases($1,single_Cases($2)); }
     ;
 
     /* end of grammar */
