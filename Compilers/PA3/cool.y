@@ -86,6 +86,7 @@
     Program ast_root;	      /* the result of the parse  */
     Classes parse_results;        /* for use in semantic analysis */
     int omerrs = 0;               /* number of errors in lexing and parsing */
+    int errlastclass = 0;             /* last class has parsing error */
     %}
     
     /* A union of all the types that can be the result of parsing actions. */
@@ -175,13 +176,23 @@
     /* If no parent is specified, the class inherits from the Object class. */
     class	: CLASS TYPEID '{' dummy_feature_list '}' ';'
     { $$ = class_($2,idtable.add_string("Object"),$4,
-    stringtable.add_string(curr_filename)); }
+    stringtable.add_string(curr_filename));
+      errlastclass = 0;}
     | CLASS TYPEID INHERITS TYPEID '{' dummy_feature_list '}' ';'
-    { $$ = class_($2,$4,$6,stringtable.add_string(curr_filename)); }
+    { $$ = class_($2,$4,$6,stringtable.add_string(curr_filename));
+      errlastclass = 0;}
     | error '{' dummy_feature_list '}' ';'
-    { yyerrok; }
+    {
+      if(errlastclass) {YYABORT;}
+      errlastclass = 1;
+      yyerrok; }
+    | error ';'
+    {
+      if(errlastclass) {YYABORT;}
+      errlastclass = 1;
+      yyerrok; }
     ;
-    
+
     /* Feature list may be empty, but no empty features in list. */
     dummy_feature_list	:		/* empty */
     { $$ = nil_Features(); }
@@ -299,9 +310,13 @@
     { $$ = string_const($1); }
     | BOOL_CONST
     { $$ = bool_const($1); }
+    | OBJECTID '(' error ')'
+    { yyerrok; }
     | IF error FI
     { yyerrok; }
     | WHILE error POOL
+    { yyerrok; }
+    | LET error IN
     { yyerrok; }
     | CASE error ESAC
     { yyerrok; }
@@ -332,6 +347,8 @@
     /* This function is called automatically when Bison detects a parse error. */
     void yyerror(char *s)
     {
+      if(errlastclass) {return;}
+
       extern int curr_lineno;
       
       cerr << "\"" << curr_filename << "\", line " << curr_lineno << ": " \
