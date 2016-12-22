@@ -23,7 +23,10 @@
       
       
       #define YYLLOC_DEFAULT(Current, Rhs, N)         \
-      Current = Rhs[1];                             \
+      if (N)                                          \
+        Current = Rhs[1];                             \
+      else                                            \
+        Current = Rhs[0];                             \
       node_lineno = Current;
     
     
@@ -175,7 +178,7 @@
     stringtable.add_string(curr_filename)); }
     | CLASS TYPEID INHERITS TYPEID '{' dummy_feature_list '}' ';'
     { $$ = class_($2,$4,$6,stringtable.add_string(curr_filename)); }
-    | error ';'
+    | error '{' dummy_feature_list '}' ';'
     { yyerrok; }
     ;
     
@@ -230,6 +233,8 @@
     { $$ = single_Expressions($1); }
     | expression_list expression ';'
     { $$ = append_Expressions($1,single_Expressions($2)); }
+    | error ';'
+    { yyerrok; }
     ;
 
     dummy_argument_list	:		/* empty */
@@ -294,6 +299,12 @@
     { $$ = string_const($1); }
     | BOOL_CONST
     { $$ = bool_const($1); }
+    | IF error FI
+    { yyerrok; }
+    | WHILE error POOL
+    { yyerrok; }
+    | CASE error ESAC
+    { yyerrok; }
     ;
 	
     let_initialization_list	: ',' OBJECTID ':' TYPEID opt_initialization let_initialization_list
@@ -305,6 +316,8 @@
     /* Cases */
     case	: OBJECTID ':' TYPEID DARROW expression ';'
     { $$ = branch($1,$3,$5); }
+    | error ';'
+    { yyerrok; }
     ;
 
     case_list	: case
